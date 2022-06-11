@@ -1,0 +1,100 @@
+// DHT sensor library - Version: 1.4.3
+#include <DHT.h>
+#include <DHT_U.h>
+#include "thingProperties.h"
+
+//Constants
+#define DHTPIN 7 // pin DHT-11 OUT/Signal is connected to
+#define DHTTYPE DHT11 // DHT 11 
+DHT dht(DHTPIN, DHTTYPE);  // Create the DHT object
+
+#define fan 6  // transistor base resistor  connected to pin 6 on the MKR board
+#define default_max_temp 30
+
+void setup() {
+  // Initialize serial and wait for port to open:
+  Serial.begin(9600);
+  // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
+  delay(1500); 
+
+  // Defined in thingProperties.h
+  initProperties();
+
+  // Connect to Arduino IoT Cloud
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+  
+  setDebugMessageLevel(2);
+  ArduinoCloud.printDebugInfo();
+  
+  //Initialize
+  dht.begin();
+  pinMode(fan, OUTPUT);
+  digitalWrite(fan, LOW); //turn fan off
+  if(max_temp == NULL) {
+    max_temp = default_max_temp; // setting a default value if one is not set
+  }
+}
+
+void loop() {
+  ArduinoCloud.update();
+  //Read temperature data and set the temperature variable
+  temperature = dht.readTemperature();
+  //Print values to the serial monitor
+  Serial.print("Temp: ");
+  Serial.print(temperature);
+  Serial.println(" Celcius");
+  //Control fan or regulate temperature based on user input settings
+  update_system();
+  
+  delay(5000); //delay for 5 seconds
+  
+  
+}
+
+
+void regulate_temperature() {
+  //check temp setting
+  if(temperature > max_temp) {
+    //turn fan on
+    digitalWrite(fan, HIGH);
+    fan_on = true;
+  } else {
+    //turn fan off
+    digitalWrite(fan, LOW);
+    fan_on = false;
+  }
+}
+
+void turn_fan_on_off() {
+  //turn fan on/off based on value set
+  if (fan_on) {
+    digitalWrite(fan, HIGH); //turn fan on
+  } else {
+    digitalWrite(fan, LOW); //turn fan off
+  }
+}
+
+void update_system() {
+  //is override enabled
+  if (override_fan_control) {
+    turn_fan_on_off();
+  } else {
+    //manual override not set
+    regulate_temperature();
+  }
+}
+
+
+void onMaxTempChange() {
+  regulate_temperature();
+}
+void onOverrideFanControlChange() {
+  update_system();
+}
+void onFanOnChange() {
+  update_system();
+}
+
+
+
+
